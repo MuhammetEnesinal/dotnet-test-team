@@ -1,0 +1,19 @@
+# Per-run working data created inside the project under test, never part of this repo
+.test-generator/
+TestResults/
+obj/
+*.tmp
+*.log
+
+# Local editor / agent settings
+.claude/settings.local.json
+.vs/
+.idea/
+
+# Local test suite and evaluation material: never part of the plugin repository
+/tests/
+/evals/
+
+# Python
+__pycache__/
+*.pyc

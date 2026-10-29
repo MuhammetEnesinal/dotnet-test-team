@@ -1,0 +1,80 @@
+{
+  "description": "Exact package IDs and versions the scaffold script may put into a generated test project. Package names are never chosen by a language model. Change this file deliberately: re-check versions on nuget.org and check that a test project of every profile still restores, builds and runs.",
+  "verifiedOnUtc": "2026-10-18",
+  "source": "https://api.nuget.org/v3-flatcontainer/<id-lowercase>/index.json (latest stable at the time)",
+  "profiles": {
+    "vstest-xunitv3": {
+      "framework": "xunit-v3",
+      "runner": "vstest",
+      "minTestTfm": "net8.0",
+      "outputType": "Exe",
+      "packages": [
+        { "id": "xunit.v3.mtp-off", "version": "4.0.2" },
+        { "id": "xunit.runner.visualstudio", "version": "4.0.1" },
+        { "id": "Microsoft.NET.Test.Sdk", "version": "18.11.0" },
+        { "id": "coverlet.collector", "version": "10.1.0", "privateAssets": "all" }
+      ],
+      "usings": ["Xunit"],
+      "note": "xunit.v3.mtp-off is xunit.v3 without Microsoft.Testing.Platform, so classic 'dotnet test' (VSTest) keeps working on the .NET 9 and 10 SDKs. The plain 'xunit.v3' package fails with 'Testing with VSTest target is no longer supported' on the .NET 10 SDK (verified 2026-10-18)."
+    },
+    "vstest-xunitv2": {
+      "framework": "xunit-v2",
+      "runner": "vstest",
+      "minTestTfm": "net8.0",
+      "outputType": "Library",
+      "packages": [
+        { "id": "xunit", "version": "2.9.3" },
+        { "id": "xunit.runner.visualstudio", "version": "3.1.5" },
+        { "id": "Microsoft.NET.Test.Sdk", "version": "18.11.0" },
+        { "id": "coverlet.collector", "version": "10.1.0", "privateAssets": "all" }
+      ],
+      "usings": ["Xunit"]
+    },
+    "vstest-nunit": {
+      "framework": "nunit",
+      "runner": "vstest",
+      "minTestTfm": "net8.0",
+      "outputType": "Library",
+      "packages": [
+        { "id": "NUnit", "version": "5.0.0" },
+        { "id": "NUnit3TestAdapter", "version": "6.3.1" },
+        { "id": "Microsoft.NET.Test.Sdk", "version": "18.11.0" },
+        { "id": "coverlet.collector", "version": "10.1.0", "privateAssets": "all" }
+      ],
+      "usings": ["NUnit.Framework"]
+    },
+    "vstest-mstest": {
+      "framework": "mstest",
+      "runner": "vstest",
+      "minTestTfm": "net8.0",
+      "outputType": "Library",
+      "packages": [
+        { "id": "MSTest", "version": "4.5.1" },
+        { "id": "Microsoft.NET.Test.Sdk", "version": "18.11.0" },
+        { "id": "coverlet.collector", "version": "10.1.0", "privateAssets": "all" }
+      ],
+      "usings": ["Microsoft.VisualStudio.TestTools.UnitTesting"]
+    },
+    "mtp-xunitv3": {
+      "framework": "xunit-v3",
+      "runner": "mtp",
+      "minTestTfm": "net8.0",
+      "outputType": "Exe",
+      "packages": [
+        { "id": "xunit.v3", "version": "4.0.2" },
+        { "id": "Microsoft.Testing.Extensions.TrxReport", "version": "2.5.1" },
+        { "id": "coverlet.mtp", "version": "10.1.0" }
+      ],
+      "usings": ["Xunit"],
+      "note": "Only for repositories whose global.json selects the Microsoft.Testing.Platform runner (SDK 10+). Scaffolded, built and run with dtt run on SDK 10.0.402 (2026-10-27); on SDK 9 these MTP v2 packages are not supported by dtt run."
+    }
+  },
+  "optional": {
+    "mocking": { "id": "NSubstitute", "version": "6.2.0" },
+    "efCoreTestDatabase": { "id": "Microsoft.EntityFrameworkCore.Sqlite", "versionFrom": "the target project's own Microsoft.EntityFrameworkCore version (exact match, never a version chosen here)" }
+  },
+  "notes": [
+    "Moq 4.20.0 and 4.20.1 shipped SponsorLink (read local git data at build time); this plugin never adds Moq.",
+    "An existing test project's own packages always win; this file is only used when a new test project has to be created."
+  ]
+}

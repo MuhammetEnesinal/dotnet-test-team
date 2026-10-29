@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "dotnet-test-team/scenarios.schema.json",
+  "title": "Scenario list produced by scenario-analyst",
+  "description": "Every scenario must be derived from a concrete construct in the target code. the validate-scenarios command (bin/dtt) enforces this schema plus file/line existence checks; with a top-level request block it also checks the scenarios against that block. The validator does not read this file: scripts/dtt/cmd/validate_scenarios.py holds the same rules and both are kept in sync.",
+  "type": "object",
+  "required": ["target", "scenarios"],
+  "additionalProperties": false,
+  "properties": {
+    "target": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Project-relative path of the analyzed file, or Class / Class.Method."
+    },
+    "scope": {
+      "type": "object",
+      "required": ["requested", "produced"],
+      "additionalProperties": false,
+      "description": "Optional. What the user asked for and what was left out because of it.",
+      "properties": {
+        "requested": { "type": "string", "minLength": 1, "maxLength": 200, "description": "The request in one line (analyst wording)." },
+        "produced": { "type": "integer", "minimum": 0, "maximum": 200 },
+        "leftOut": {
+          "type": "array",
+          "maxItems": 10,
+          "items": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "description": "Categories and counts of what was not covered, for example 'validation rules (3)'."
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "required": ["userText"],
+      "additionalProperties": false,
+      "description": "Optional. The user's request, written by the analyst. userText is the user's own words (the code cannot verify that); the other fields are its structured reading. Control, direction and separator characters are refused (a line feed is allowed in userText only).",
+      "properties": {
+        "userText": { "type": "string", "minLength": 1, "maxLength": 2000, "description": "The request verbatim." },
+        "targets": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "required": ["file"],
+            "additionalProperties": false,
+            "properties": {
+              "file": { "type": "string", "minLength": 1, "maxLength": 300, "description": "Project-relative path of a target of the run." },
+              "members": { "type": "array", "maxItems": 20, "items": { "type": "string", "maxLength": 101, "pattern": "^[A-Za-z_][A-Za-z0-9_]*([.][A-Za-z_][A-Za-z0-9_]*)*$" } }
+            }
+          }
+        },
+        "count": {
+          "type": "object",
+          "required": ["max"],
+          "additionalProperties": false,
+          "properties": {
+            "max": { "type": "integer", "minimum": 1, "maximum": 200 },
+            "per": { "enum": ["total", "target"], "default": "total" }
+          }
+        },
+        "cases": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "required": ["input"],
+            "additionalProperties": false,
+            "properties": {
+              "member": { "type": "string", "maxLength": 101, "pattern": "^[A-Za-z_][A-Za-z0-9_]*([.][A-Za-z_][A-Za-z0-9_]*)*$" },
+              "input": { "type": "string", "minLength": 1, "maxLength": 300 },
+              "expected": { "type": "string", "minLength": 1, "maxLength": 300 }
+            }
+          }
+        },
+        "focus": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "exclude": { "type": "array", "maxItems": 10, "items": { "type": "string", "minLength": 1, "maxLength": 120 } },
+        "form": { "enum": ["separate", "grouped"], "description": "grouped needs at least two cases for the same member, or count.max >= 2 with exactly one member target." },
+        "names": { "type": "array", "maxItems": 20, "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]{0,100}$" } }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": ["id", "member", "construct", "input", "expected", "expectedBasis", "rationale", "kind"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^S[0-9]{3}$" },
+          "member": { "type": "string", "maxLength": 200, "description": "Method or property under test, e.g. DiscountCalculator.Apply" },
+          "construct": {
+            "type": "object",
+            "required": ["type", "file", "line"],
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": ["branch", "constant", "throw", "null-conditional", "switch-arm", "loop", "dependency-call", "await", "signature", "other"]
+              },
+              "file": { "type": "string", "maxLength": 300, "description": "Project-relative path." },
+              "line": { "type": "integer", "minimum": 1 }
+            }
+          },
+          "input": { "type": "string", "maxLength": 300 },
+          "expected": { "type": "string", "maxLength": 300 },
+          "expectedBasis": {
+            "enum": ["name", "xml-doc", "usage", "contract", "user-stated", "unknown"],
+            "description": "Where the expected value comes from. Never 'observed output of the code'."
+          },
+          "rationale": { "type": "string", "maxLength": 300 },
+          "kind": {
+            "enum": ["normal", "boundary", "exception", "dependency", "async", "state", "ambiguous"]
+          },
+          "origin": {
+            "enum": ["user", "derived"],
+            "description": "Optional. 'user' = the scenario is one of the cases the user gave in the request (one scenario per case, in the given order)."
+          },
+          "group": {
+            "type": "string",
+            "pattern": "^G[0-9]{1,2}$",
+            "description": "Optional. Scenarios with the same group id become rows of one parameterized test (form: grouped). A group has 2 to 50 scenarios of the same member."
+          },
+          "conflict": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "description": "Optional, single line. The user's expected value is kept, but the input throws, is unreachable or contradicts the documentation (cite file:line or the XML doc)."
+          },
+          "existingTest": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "description": "Optional, single line. An already existing test that covers the same member with the same input."
+          }
+        }
+      }
+    }
+  }
+}

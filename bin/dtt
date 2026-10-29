@@ -1,0 +1,228 @@
+#!/bin/sh
+# dotnet-test-team launcher. Usage: bash "${CLAUDE_PLUGIN_ROOT}/bin/dtt" <command> [options]
+# Finds a real Python >= 3.9 and runs scripts/dtt/__main__.py with it (python -I -B -X utf8). The Microsoft Store "python3"
+# placeholder is rejected because the version probe fails. A program is used only when it is found in an ABSOLUTE PATH entry
+# outside the current folder and the project folder (an empty or "." entry in PATH must never run a program from the repository).
+# No eval; every expansion is quoted.
+#   CLI mode: no Python -> message on stderr, exit 3.
+#   hook mode (first argument "hook"): no Python -> exit 2 with one line only when a .test-generator/runs folder exists in the
+#   current folder, the project folder or one of their parents (a run may be open and its guards cannot work); otherwise exit 0
+#   silently, so that a missing Python never disturbs projects that do not use this plugin.
+
+PROBE='import os,sys;sys.exit(0 if sys.version_info>=(3,9) and os.access(sys.argv[1],os.R_OK) else 1)'
+
+mode=cli
+if [ "${1-}" = "hook" ]; then mode=hook; fi
+
+# run_open <dir>: true when <dir> or a parent of it has .test-generator/runs
+run_open() {
+    d=$1
+    while [ -n "$d" ]; do
+        [ -d "$d/.test-generator/runs" ] && return 0
+        case $d in
+            */*) d=${d%/*} ;;
+            *) break ;;
+        esac
+    done
+    [ -d /.test-generator/runs ]
+}
+
+# fail <fixed ASCII sentence>
+fail() {
+    if [ "$mode" = "hook" ]; then
+        if run_open "$PWD" || { [ -n "${CLAUDE_PROJECT_DIR-}" ] && run_open "$CLAUDE_PROJECT_DIR"; }; then
+            printf '%s\n' "dotnet-test-team: its hooks cannot run because $1; a test-generation run is open, so tool calls are refused until this is fixed." >&2
+            exit 2
+        fi
+        exit 0
+    fi
+    printf '%s\n' "dtt: $1" >&2
+    exit 3
+}
+
+# Where is this script? $0 may be a Windows path with backslashes; the plugin root is two levels up.
+self=$0
+while :; do
+    case $self in
+        *\\*) self="${self%%\\*}/${self#*\\}" ;;
+        *) break ;;
+    esac
+done
+case $self in
+    */*) here=${self%/*} ;;
+    *) here=. ;;
+esac
+case $here in
+    .|..|*/.|*/..) root="$here/.." ;;
+    */*) root=${here%/*} ;;
+    *) root=. ;;
+esac
+[ -n "$here" ] || here=/
+[ -n "$root" ] || root=/
+entry="$root/scripts/dtt/__main__.py"
+[ -f "$entry" ] && [ -r "$entry" ] || fail "the plugin script scripts/dtt/__main__.py is missing or not readable"
+
+# Prefilter (hook mode, exactly "hook <name>"): a hook call that is certainly not for this plugin never starts Python. It may
+# only SKIP when a marker is absent; in doubt Python runs. The payload (read with a cap of 16 MiB + 1 byte, like the Python side)
+# lives only in a shell variable, is matched with case patterns and is handed to Python through a pipe; it is never evaluated.
+#   guard-writes   : our agents, or any writer touching a run folder -> "dotnet-test-team:" or ".test-generator"
+#   session-resume : needs a .test-generator folder in the project or the current folder
+# A payload containing a JSON unicode escape (backslash-u) always goes to Python (an escape could spell a marker).
+payload=
+if [ "$mode" = "hook" ] && [ "$#" -eq 2 ]; then
+    case $2 in
+        guard-writes)
+            if [ ! -t 0 ] && { payload=$(head -c 16777217); } 2>/dev/null; then
+                # In doubt Python runs. Triggers: a plugin agent name in any letter case; a backslash-u escape or a JSON "\/" (either could
+                # spell a marker); "~<digit>" (8.3 short name); a string that starts with two backslashes (UNC, extended-length and device
+                # paths) or with "//" and a non-blank (the same on Windows); 4 Mi characters or more (the cap Python applies is in bytes).
+                case $payload in
+                    *[Dd][Oo][Tt][Nn][Ee][Tt]-[Tt][Ee][Ss][Tt]-[Tt][Ee][Aa][Mm]:*|*'\u'*|*'\/'*) ;;
+                    *[.][Tt][Ee][Ss][Tt]-[Gg][Ee][Nn][Ee][Rr][Aa][Tt][Oo][Rr]*) ;;
+                    *'~'[0-9]*) ;;
+                    *'"\\\\'*|*'"//'[!/' ']*) ;;
+                    *) if [ "${#payload}" -lt 4194304 ]; then exit 0; fi ;;
+                esac
+            else
+                payload=
+            fi
+            ;;
+        session-resume)
+            if [ ! -d "${CLAUDE_PROJECT_DIR:-$PWD}/.test-generator" ] && [ ! -d "$PWD/.test-generator" ]; then
+                exit 0
+            fi
+            ;;
+    esac
+fi
+
+# Git Bash / MSYS / Cygwin: a native Windows Python needs a Windows path (C:/... is fine as it is, otherwise cygpath converts it).
+case $entry in
+    [A-Za-z]:*) ;;
+    *)
+        case ${OSTYPE-} in
+            msys*|cygwin*) entry=$(cygpath -w "$entry" 2>/dev/null) || fail "cygpath failed" ;;
+        esac
+        ;;
+esac
+
+# under <path> <dir>: true when <path> is <dir> or inside it. Git Bash gives CLAUDE_PROJECT_DIR as C:\x\y but paths as /c/x/y,
+# so a dir in Windows form is also compared without its drive letter (may reject a little too much, never too little).
+under() {
+    case $1 in
+        "$2"|"$2"/*) return 0 ;;
+    esac
+    case $2 in
+        [A-Za-z]:*)
+            ud=${2#??}
+            while :; do
+                case $ud in
+                    *\\*) ud="${ud%%\\*}/${ud#*\\}" ;;
+                    *) break ;;
+                esac
+            done
+            ud=${ud%/}
+            [ -n "$ud" ] || return 1
+            case $1 in
+                [A-Za-z]:*|/[A-Za-z]/*) up=${1#??} ;;
+                *) return 1 ;;
+            esac
+            case $up in
+                "$ud"|"$ud"/*) return 0 ;;
+            esac
+            ;;
+    esac
+    return 1
+}
+
+# usable <path>: an absolute executable file outside the current folder and the project folder
+usable() {
+    case $1 in
+        ""|*[[:cntrl:]]*) return 1 ;;
+        /*|[A-Za-z]:/*) ;;
+        *) return 1 ;;
+    esac
+    if under "$1" "$PWD"; then return 1; fi
+    if [ -n "${CLAUDE_PROJECT_DIR-}" ] && under "$1" "$CLAUDE_PROJECT_DIR"; then return 1; fi
+    [ -f "$1" ] && [ -x "$1" ] || return 1
+    # The string checks above can be spelled around (upper/lower case on Windows and macOS, "//", "..", 8.3 names, symlinks). So the
+    # folder of the program is resolved to its physical form and it and each of its parents are compared by file identity with the
+    # current folder and the project folder.
+    canon=${1%/*}
+    [ -n "$canon" ] || canon=/
+    canon=$(cd -P -- "$canon" 2>/dev/null && pwd -P)
+    [ -n "$canon" ] || return 1
+    if inside_same "$canon" "$PWD"; then return 1; fi
+    if [ -n "${CLAUDE_PROJECT_DIR-}" ] && inside_same "$canon" "$CLAUDE_PROJECT_DIR"; then return 1; fi
+    return 0
+}
+
+# inside_same <physical dir> <dir>: true when <physical dir> or one of its parents is the same directory as <dir> (-ef compares identity)
+inside_same() {
+    walk=$1
+    while :; do
+        if [ "$walk" -ef "$2" ]; then return 0; fi
+        case $walk in
+            ""|/) return 1 ;;
+            */*) walk=${walk%/*}; [ -n "$walk" ] || walk=/ ;;
+            *) return 1 ;;
+        esac
+    done
+}
+
+# first executable called $1 in an ABSOLUTE PATH entry (empty and relative entries are skipped); shell builtins only
+resolve_cand() {
+    rp=
+    oldifs=$IFS
+    IFS=:
+    set -f
+    for dir in $PATH; do
+        case $dir in
+            /*) ;;
+            *) continue ;;
+        esac
+        dir=${dir%/}
+        if usable "$dir/$1"; then
+            rp="$dir/$1"
+            break
+        fi
+    done
+    set +f
+    IFS=$oldifs
+    [ -n "$rp" ]
+}
+
+# probe <path> [-3]: runs, is Python >= 3.9 and can read the plugin script. -I: nothing is imported from the current folder.
+probe() {
+    if [ -n "${2-}" ]; then
+        "$1" "$2" -I -c "$PROBE" "$entry" </dev/null >/dev/null 2>&1
+    else
+        "$1" -I -c "$PROBE" "$entry" </dev/null >/dev/null 2>&1
+    fi
+}
+
+# run_py <python> [-3] args...: exec when the prefilter did not read stdin, else pass the payload through a pipe
+run_py() {
+    py=$1
+    shift
+    pyarg=
+    if [ "$1" = "-3" ]; then
+        pyarg=-3
+        shift
+    fi
+    if [ -n "$payload" ]; then
+        printf '%s' "$payload" | "$py" ${pyarg:+"$pyarg"} -I -B -X utf8 "$entry" "$@"
+        exit $?
+    fi
+    exec "$py" ${pyarg:+"$pyarg"} -I -B -X utf8 "$entry" "$@"
+}
+
+# "python" before "python3": on Windows the Store placeholder is called python3 and a failed probe of it is slow
+for cand in python3.13 python3.12 python3.11 python3.10 python3.9 python python3; do
+    resolve_cand "$cand" || continue
+    probe "$rp" || continue
+    run_py "$rp" "$@"
+done
+if resolve_cand py && probe "$rp" -3; then
+    run_py "$rp" -3 "$@"
+fi
+fail "Python 3.9 or newer was not found on PATH (the Microsoft Store python3 placeholder does not count); install Python from python.org and restart Claude Code"

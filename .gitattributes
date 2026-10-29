@@ -1,0 +1,8 @@
+# Text files are normalised to LF in the repository. The launcher and the Python files must keep LF on every platform:
+# a CRLF bin/dtt breaks under Linux and Git Bash.
+* text=auto
+bin/dtt text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.md text
+*.json text

@@ -1,0 +1,21 @@
+{
+  "name": "dotnet-test-team",
+  "version": "0.7.0",
+  "description": "Derives unit-test scenarios from your C# code, asks for your approval, writes tests in your project's own test stack, runs them and reports failures as test bugs or possible code bugs without changing production code.",
+  "author": {
+    "name": "MuhammetEnesinal",
+    "url": "https://github.com/MuhammetEnesinal"
+  },
+  "homepage": "https://github.com/MuhammetEnesinal/dotnet-test-team",
+  "repository": "https://github.com/MuhammetEnesinal/dotnet-test-team",
+  "license": "MIT",
+  "keywords": [
+    "dotnet",
+    "csharp",
+    "unit-testing",
+    "xunit",
+    "nunit",
+    "mstest",
+    "test-generation"
+  ]
+}

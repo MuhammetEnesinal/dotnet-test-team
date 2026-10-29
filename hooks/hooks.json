@@ -1,0 +1,29 @@
+{
+  "description": "dotnet-test-team: write guard for the plugin's own subagents, and a resume hint at session start that also removes leftover test-database containers of crashed runs.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/dtt\" hook session-resume",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/dtt\" hook guard-writes",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

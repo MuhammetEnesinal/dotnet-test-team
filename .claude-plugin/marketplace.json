@@ -1,0 +1,12 @@
+{
+  "name": "dotnet-test-team",
+  "owner": { "name": "MuhammetEnesinal" },
+  "description": "Marketplace for the dotnet-test-team Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "dotnet-test-team",
+      "source": "./",
+      "description": "Writes and runs unit tests for C# code: scenarios from the code, your approval first, your test stack, production code left alone (checked after each run)."
+    }
+  ]
+}
