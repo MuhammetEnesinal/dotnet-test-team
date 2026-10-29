@@ -76,7 +76,7 @@ claude plugin marketplace add MuhammetEnesinal/dotnet-test-team   # or: add /pat
 claude plugin install dotnet-test-team@dotnet-test-team
 ```
 
-The local-folder form was tried on Windows: install, `claude plugin list`, `claude plugin details` (1 skill, 3 agents, 2 hooks) and uninstall all worked. Installing from GitHub was not tried because the repository is not published yet (the address above is where it is expected to live).
+The local-folder form was tried on Windows: install, `claude plugin list`, `claude plugin details` (1 skill, 3 agents, 2 hooks) and uninstall all worked. Installing from GitHub (`MuhammetEnesinal/dotnet-test-team`) also worked on Windows: the marketplace was added, the plugin installed (1 skill, 3 agents, 2 hooks) and its launcher ran from the install cache.
 
 **Check:** type `/` and look for `dotnet-test-team:test-generator`, or run `claude plugin list`. `bash /path/to/dotnet-test-team/bin/dtt --platform` prints what the plugin sees (Python, OS), useful in bug reports. `claude plugin validate /path/to/dotnet-test-team` checks the manifest.
 
@@ -221,7 +221,7 @@ Everything below was run by the author; the test material is not part of this re
 | Refusals on a real SDK | Multi-target project, MTP on SDK 9, MTP on SDK 10 without the `global.json` key, a `;` in the path: refused before any build |
 | Platforms | Windows 11 x64 native. Linux: a Linux container (.NET SDK, Python, Docker CLI) on a Windows Docker Desktop host; the model runs happened on Windows, on Linux the helper `dtt run` ran on the finished tests. **macOS: untested. Linux on a bare-metal host: untested.** Windows without Git Bash: simulated, see Requirements and Troubleshooting |
 | Helper program | An automated suite of 928 tests passes on Windows (78 skipped) and in Linux containers with Python 3.9 and 3.13 (76 skipped; skips need Windows-only features, the .NET SDK or Docker) |
-| Install from a local marketplace folder | Worked on Windows (install, list, details, uninstall) |
+| Install from a local marketplace folder and from GitHub | Worked on Windows (add, install, details, launcher run, uninstall) |
 
 ## Troubleshooting
 
@@ -238,7 +238,7 @@ Everything below was run by the author; the test material is not part of this re
 | A usage limit stopped the run | Start again with `--resume`. |
 | Hooks seem to do nothing | Check `claude --debug` output (files in `~/.claude/debug/`). |
 
-To report a problem, include `bash <plugin>/bin/dtt --platform`, the Claude Code version and the last lines of the `dtt run` output at https://github.com/MuhammetEnesinal/dotnet-test-team/issues (once the repository is published).
+To report a problem, include `bash <plugin>/bin/dtt --platform`, the Claude Code version and the last lines of the `dtt run` output at https://github.com/MuhammetEnesinal/dotnet-test-team/issues .
 
 ## License
 
